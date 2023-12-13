@@ -92,7 +92,7 @@ void log_transmit_info(local_id source_id, local_id destination_id, balance_t ba
 }
 void move_to_queue(ipc_message* money_source, timestamp_t initial_time, timestamp_t time_limit, balance_t current_money) {
     if (time_limit > initial_time) {
-        for (timestamp_t time = initial_time; time < time_limit; time++) {
+        for (timestamp_t time = initial_time; time < time_limit; time = time + 1) {
             money_source ->
             balance_history
             .s_history[time]
@@ -103,39 +103,44 @@ void move_to_queue(ipc_message* money_source, timestamp_t initial_time, timestam
 
 void renew_metrics(int state_sum, timestamp_t time) {
     timestamp_t time_now = get_lamport_time();
+
     if (time_now <= MAX_T) {
-        int len = message.balance_history.s_history_len;
-        if (len - time_now == 1) {
+
+        int history_length = message.balance_history.s_history_len;
+
+        if (history_length - time_now == 1) {
             if (state_sum > 0)
                 move_to_queue(&message, time, time_now, state_sum);
-            message.balance_history.s_history[len - 1].s_balance += state_sum;
-        } else if (len == time_now) {
+            message.balance_history.s_history[history_length - 1].s_balance += state_sum;
+        } else if (history_length == time_now) {
             if (state_sum > 0)
                 move_to_queue(&message, time, time_now, state_sum);
-            balance_t new_balance = message.balance_history.s_history[len - 1].s_balance + state_sum;
-            len++;
-            message.balance_history.s_history[len - 1] = (BalanceState) {
+            balance_t new_balance = message.balance_history.s_history[history_length - 1].s_balance + state_sum;
+            history_length = history_length + 1;
+            message.balance_history.s_history[history_length - 1] = (BalanceState) {
                     .s_balance = new_balance,
                     .s_time = time_now,
                     .s_balance_pending_in = 0,
             };
             message.balance_history.s_history_len++;
-        } else if (time_now - len > 0) {
-            balance_t last_balance = message.balance_history.s_history[len - 1].s_balance;
-            for (int index = len; index < time_now; index++) {
+        } else if (time_now - history_length > 0) {
+            balance_t last_balance = message.balance_history.s_history[history_length - 1].s_balance;
+            for (int index = history_length; index < time_now; index++) {
                 message.balance_history.s_history[index] = (BalanceState) {
                         .s_balance = last_balance,
                         .s_time = index,
                         .s_balance_pending_in = 0,
                 };
             }
-            if (state_sum > 0)
-                move_to_queue(&message, time, time_now, state_sum);
+
+            if (state_sum > 0) move_to_queue(&message, time, time_now, state_sum);
+
             message.balance_history.s_history[time_now] = (BalanceState) {
                     .s_balance = last_balance + state_sum,
                     .s_time = time_now,
                     .s_balance_pending_in = 0,
             };
+
             message.balance_history.s_history_len = time_now + 1;
         }
     }
@@ -144,26 +149,30 @@ void renew_metrics(int state_sum, timestamp_t time) {
 void pipes_cleanup() {
     for (size_t pipe_i = 0; pipe_i < MAXIMAL_PROCESSES_NUMBER; pipe_i++) {
         for (size_t pipe_j = 0; pipe_j < MAXIMAL_PROCESSES_NUMBER; pipe_j++) {
-            if (pipe_i != pipe_j && pipe_i != message.message_id && pipe_j != message.message_id) {
-                close(write_matrix[pipe_i][pipe_j]);
-                close(read_matrix[pipe_i][pipe_j]);
+            if (pipe_i != pipe_j) {
+                if (pipe_j != message.message_id) {
+                    close(write_matrix[pipe_i][pipe_j]);
+                    close(read_matrix[pipe_i][pipe_j]);
+                }
             }
-            if (pipe_i == message.message_id && pipe_j != message.message_id) {
-                close(read_matrix[pipe_i][pipe_j]);
+            if (pipe_i == message.message_id) {
+                if (pipe_j != message.message_id) {
+                    close(read_matrix[pipe_i][pipe_j]);
+                }
             }
-            if (pipe_i != message.message_id && pipe_j == message.message_id ) {
-                close(write_matrix[pipe_i][pipe_j]);
+            if (pipe_i != message.message_id) {
+                if (pipe_j == message.message_id) {
+                    close(write_matrix[pipe_i][pipe_j]);
+                }
             }
         }
     }
 }
 
 void connect_to_children_processes(local_id parrend_process_id) {
-    if (message.message_id == parrend_process_id) {
-        for (size_t i = 1; i <= MAXIMAL_PROCESSES_NUMBER; i++) {
-            waitpid(pid_of_processes[i], NULL, 0);
-        }
-    }
+    if (message.message_id == parrend_process_id)
+        for (size_t index = 1; index <= MAXIMAL_PROCESSES_NUMBER; index = index + 1)
+            waitpid(pid_of_processes[index], NULL, 0);
 }
 
 
@@ -174,7 +183,6 @@ void share_handler(ipc_message* source, Message* content) {
     TransferOrder transfer_order = pointer_to_transfer -> transfer_order;
     if (message.message_id == transfer_order.s_dst) {
         money_diff = transfer_order.s_amount;
-        //renew_metrics(transfer_order.s_amount, current_physical_time);
         log_info(log_transfer_in_fmt, transfer_order.s_src, transfer_order.s_dst, transfer_order.s_amount);
         source -> message_time += 1;
         Message ack_message = {
@@ -190,7 +198,6 @@ void share_handler(ipc_message* source, Message* content) {
     }
     else {
         money_diff = -transfer_order.s_amount;
-        //renew_metrics(-transfer_order.s_amount, current_physical_time);
         log_transmit_info(transfer_order.s_src, transfer_order.s_dst, transfer_order.s_amount);
         pointer_to_transfer -> message_id = message.message_id;
         transfer(
@@ -220,21 +227,19 @@ int release_cs(const void* source) {
             if (latest_time < release_message.s_header.s_local_time) latest_time =
                     release_message.s_header.s_local_time;
         }
-        else {
-            return IPC_MESSAGE_STATUS_ERROR_CANNOT_READ;
-        }
+        else return IPC_MESSAGE_STATUS_ERROR_CANNOT_READ;
     }
-    for(size_t current_child_id = shift; current_child_id <= history -> s_history_len; current_child_id += shift) {
+    for (size_t current_child_id = shift; current_child_id <= history -> s_history_len; current_child_id += shift) {
         BalanceHistory balance_history = history -> s_history[current_child_id - shift];
         BalanceHistory new_balance_history = (BalanceHistory) {.s_history_len = latest_time + shift,.s_id = balance_history.s_id,};
-        for(int iterable = 0; iterable < balance_history.s_history_len; iterable++) {
+        for (int iterable = 0; iterable < balance_history.s_history_len; iterable++) {
             new_balance_history.s_history[iterable].s_time = iterable;
             new_balance_history.s_history[iterable].s_balance_pending_in = balance_history.s_history[iterable].s_balance_pending_in;
             new_balance_history.s_history[iterable].s_balance = balance_history.s_history[iterable].s_balance;
         }
 
         balance_t last_balance = balance_history.s_history[balance_history.s_history_len - shift].s_balance;
-        for(int iterable2 = balance_history.s_history_len; iterable2<=latest_time; iterable2++) {
+        for (int iterable2 = balance_history.s_history_len; iterable2<=latest_time; iterable2++) {
             new_balance_history.s_history[iterable2].s_time = iterable2;
             new_balance_history.s_history[iterable2].s_balance_pending_in = 0;
             new_balance_history.s_history[iterable2].s_balance = last_balance;
@@ -387,8 +392,6 @@ int main(int argc, char * argv[]) {
         }
         log_finished_processes();
         message.message_time++;
-        //timestamp_t current_physical_time = get_physical_time();
-        //renew_metrics(0, current_physical_time);
         Message msg_hisory = {
             .s_header = {
                 .s_type = BALANCE_HISTORY,
@@ -403,9 +406,9 @@ int main(int argc, char * argv[]) {
             sizeof(BalanceHistory)
         );
         status = send(&message, PARENT_ID, &msg_hisory);
-        if (status != IPC_MESSAGE_STATUS_SUCCESS) {
-            log_formatted_errors_without_file("Multicast sending from %d. finished with no-zero code: %d\n", message.message_id, status);
-        }
+        //if (status != IPC_MESSAGE_STATUS_SUCCESS) {
+            //log_formatted_errors_without_file("Multicast sending from %d. finished with no-zero code: %d\n", message.message_id, status);
+        //}
     }
     connect_to_children_processes(PARENT_ID);
     return 0;
