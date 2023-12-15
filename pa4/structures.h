@@ -4,7 +4,7 @@
 #define __STRUCTURES_H
 
 #include "banking.h"
-#include "ipc.h"
+#include "structures.h"
 
 #define MINIMAL_PROCESSES_NUMBER 1
 #define MAXIMAL_PROCESSES_NUMBER 10

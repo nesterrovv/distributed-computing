@@ -24,7 +24,7 @@ enum {
     PARENT_ID = 0,
     MAX_PROCESS_ID = 15
 };
-14
+
 typedef enum {
     STARTED = 0,     ///< message with string (doesn't include trailing '\0')
     DONE,            ///< message with string (doesn't include trailing '\0')

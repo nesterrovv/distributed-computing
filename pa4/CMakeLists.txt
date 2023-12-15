@@ -1,7 +1,10 @@
 add_executable(pa4
         ${CMAKE_CURRENT_SOURCE_DIR}/pa234.c
         ${CMAKE_CURRENT_SOURCE_DIR}/ipc.c
-        lamport_timer.h lamport_time.c banking.h cs.c)
+        ${CMAKE_CURRENT_SOURCE_DIR}/lamport_time.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/cs.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/pqueue.c
+)
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)
     # 64 bits
@@ -16,7 +19,7 @@ if(RUNTIME_LIBRARY)
 else(RUNTIME_LIBRARY)
     message(FATAL_ERROR "Cannot find runtime library (searched ${RUNTIME_LIBRARY_DIR})")
 endif(RUNTIME_LIBRARY)
-set_property(TARGET pa2
+set_property(TARGET pa4
         PROPERTY
         ENVIRONMENT LD_PRELOAD="${RUNTIME_LIBRARY}")
-target_link_libraries(pa2 ${RUNTIME_LIBRARY})
+target_link_libraries(pa4 ${RUNTIME_LIBRARY})

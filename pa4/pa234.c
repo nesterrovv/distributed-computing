@@ -10,14 +10,9 @@
 #include <sys/types.h>
 #include <dlfcn.h>
 
-#include "banking.h"
 #include "structures.h"
 #include "ipc.h"
 #include "pa2345.h"
-
-int FIRST_GREATER   =  1;
-int SECOND_GREATER  = -1;
-int ITEMS_EQUAL     =  0;
 
 int STRING_SIZE = 128;
 int PRINT_VARIANTS = 5;
@@ -107,120 +102,6 @@ void log_pipes_is_ready(int source_id, int destination_id) {
 //        }
 //    }
 //}
-
-typedef struct {
-    local_id item_id;
-    timestamp_t item_timestamp;
-} __attribute__((packed)) Priority_queue_item;
-
-typedef struct {
-    Priority_queue_item items[64];
-    int capacity;
-} __attribute__((packed)) Priority_queue;
-
-Priority_queue priority_queue;
-
-Priority_queue_item    peek();
-Priority_queue_item    pop();
-void                   push(Priority_queue_item element);
-
-int compare_to(Priority_queue_item item1, Priority_queue_item item2) {
-    if (item1.item_timestamp <= item2.item_timestamp) {
-        if (item1.item_timestamp == item2.item_timestamp) {
-            if (item1.item_id > item2.item_id)          return FIRST_GREATER;
-            else if (item1.item_id == item2.item_id)    return ITEMS_EQUAL;
-        }
-    } else                                              return FIRST_GREATER;
-    return SECOND_GREATER;
-}
-
-int get_max_index_from_queue() {
-    if (priority_queue.capacity <= 0) return -1;
-    int maximal_index = 0;
-    for (int current_index = 1; current_index < priority_queue.capacity; current_index = current_index + 1) {
-        if (compare_to(priority_queue.items[current_index], priority_queue.items[maximal_index]) > 0) {
-            maximal_index = current_index;
-        }
-    }
-    return maximal_index;
-}
-
-Priority_queue_item peek() {
-    int maximal_index = get_max_index_from_queue();
-    return priority_queue.items[maximal_index];
-}
-
-Priority_queue_item pop() {
-    int maximal_index = get_max_index_from_queue();
-
-    Priority_queue_item element_with_max_id = priority_queue.items[maximal_index];
-    priority_queue.items[maximal_index] = priority_queue.items[priority_queue.capacity - 1];
-    priority_queue.capacity--;
-
-    return element_with_max_id;
-}
-
-void push(Priority_queue_item new_item) {
-    priority_queue.items[priority_queue.capacity] = new_item;
-    priority_queue.capacity++;
-}
-
-int request_cs(const void* source) {
-
-    ipc_message* message = (ipc_message*) source;
-    message -> message_time++;
-
-    Priority_queue_item item = (Priority_queue_item) {
-        .item_timestamp = get_lamport_time(),
-        .item_id = message -> message_id,
-    };
-
-    push(item);
-
-    Message request_message = {
-        .s_header = {
-            .s_magic = MESSAGE_MAGIC,
-            .s_type = CS_REQUEST,
-            .s_local_time = get_lamport_time(),
-            .s_payload_len = 0,
-        }
-    };
-
-    send_multicast(message, &request_message);
-
-    int waited_replies = number_of_processes - 2;
-    for (;;) {
-
-        if (waited_replies == 0 && peek().item_id == message -> message_id) break;
-
-        Message receive_message;
-        local_id any = receive_any(message, &receive_message);
-        increase_latest_time(message, receive_message.s_header.s_local_time);
-
-        if (receive_message.s_header.s_type == DONE) {
-            message -> done_messages++;
-        } else if (receive_message.s_header.s_type == CS_RELEASE) {
-            pop();
-        } else if (receive_message.s_header.s_type == CS_REPLY) {
-            waited_replies = waited_replies - 1;
-        } else if (receive_message.s_header.s_type == CS_REQUEST) {
-            item = (Priority_queue_item) {
-                .item_id = any,
-                .item_timestamp = receive_message.s_header.s_local_time,
-            };
-            push(item);
-            Message msg = {
-                .s_header = {
-                    .s_magic = MESSAGE_MAGIC,
-                    .s_local_time = ++message->message_time,
-                    .s_type = CS_REPLY,
-                    .s_payload_len = 0,
-                }};
-            send(message, any, &msg);
-        }
-    }
-    return 0;
-}
 
 //void renew_metrics(int state_sum, timestamp_t time) {
 //    timestamp_t time_now = get_lamport_time();
@@ -333,27 +214,14 @@ void connect_to_children_processes(local_id parrend_process_id) {
     //renew_metrics(money_diff, time_for_move);
 //}
 
-int release_cs(const void* source) {
-    ipc_message* message = (ipc_message*) source;
-    pop();
-    Message msg = {
-        .s_header = {
-            .s_magic = MESSAGE_MAGIC,
-            .s_local_time = ++message->message_time,
-            .s_type = CS_RELEASE,
-            .s_payload_len = 0,
-        }
-    };
-    send_multicast(message, &msg);
-    return 0;
-}
-
+`
 int main(int argc, char * argv[]) {
+    log_info_about_pipes("program started", 1, 2);
     size_t children_processes_number = -1;
     int is_common = 0;
     int not_all_args = argc < 3;
     if (not_all_args) {
-        log_formatted_errors_without_file("Incorrect format of prorgram running.");
+        log_formatted_errors_without_file("Incorrect format of program running.");
         return 1;
     }
     int argument_index = 1; // because 0th is not necessary for us now
@@ -368,7 +236,7 @@ int main(int argc, char * argv[]) {
                 children_processes_number = strtol(argv[argument_index], NULL, 10);
                 number_of_processes = children_processes_number + 1;
             } else {
-                log_formatted_errors_without_file("Incorrect format of prorgram running.");
+                log_formatted_errors_without_file("Incorrect format of program running.");
                 return 1;
             }
         } else {
@@ -431,7 +299,11 @@ int main(int argc, char * argv[]) {
 
     pipes_cleanup();
 
-    if (message.message_id != PARENT_ID) {
+    if (message.message_id == PARENT_ID) {
+        Message content;
+        receive_from_all_children(&message, &content, children_processes_number);
+        log_finished_processes();
+    } else {
         Message content;
         send_started_to_all(&message);
         receive_from_all_children(&message, &content, children_processes_number);
@@ -447,21 +319,22 @@ int main(int argc, char * argv[]) {
         if (is_common == 1) release_cs(&message);
         send_done_to_all(&message);
         while (message.done_messages < children_processes_number - 1) {
-            Message msg;
-            receive_any(&message, &msg);
-            MessageType type_of_message = msg.s_header.s_type;
-            if (type_of_message == DONE) {
-                message.done_messages++;
-                break;
-            } else break;
+            log_info_about_pipes("while", 1, 2);
+            Message content;
+            receive_any(&message, &content);
+            MessageType message_type = content.s_header.s_type;
+            switch (message_type)
+            {
+                case DONE:
+                    message.done_messages++;
+                    break;
+                default:
+                    break;
+            }
         }
-
-        connect_to_children_processes(PARENT_ID);
-        log_finished_processes();
-
-    } else {
-        Message content;
-        receive_from_all_children(&message, &content, children_processes_number);
-        log_finished_processes();
     }
+    connect_to_children_processes(PARENT_ID);
+    log_finished_processes();
+    //wait_for_children(PARENT_ID);
+    return 0;
 }

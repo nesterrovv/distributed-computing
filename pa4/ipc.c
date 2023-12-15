@@ -3,11 +3,11 @@
 #include <assert.h>
 #include <stdbool.h>
 
-#include "ipc.h"
-#include "structures.h"
 #include "banking.h"
-#include "stdio.h"
+#include "structures.h"
+#include "ipc.h"
 #include "pa2345.h"
+#include "stdio.h"
 
 bool check_if_payload_positive(uint16_t payload) {
     return payload > 0;
@@ -75,7 +75,7 @@ int receive(void* source, local_id destination, Message* receiving_message) {
                 for (;;) {
                     temporary_receiving_result =
                         read(
-                        read_matrix[destination][((ipc_message *)source)->message_id],
+                        read_matrix[destination][((ipc_message*)source)->message_id],
                         &receiving_message->s_payload,
                         receiving_message->s_header.s_payload_len
                         );
@@ -115,13 +115,14 @@ int receive_any(void* source, Message* receiving_message) {
                     ||    temporary_receiving_result == IPC_MESSAGE_STATUS_NOT_SENT)) break;
                 }
             }
-            return receiving_message -> s_header.s_type;
+            //return receiving_message -> s_header.s_type; // fixme
+            return current_receiver;
         }
     }
 }
 
-int receive_from_all_children(ipc_message* source, Message* receiving_message, int children_processes_number) {
-    for (int current_children = 1; current_children <= children_processes_number; current_children = current_children + 1) {
+int receive_from_all_children(ipc_message* source, Message* receiving_message, int children_number) {
+    for (int current_children = 1; current_children <= children_number; current_children = current_children + 1) {
         if (current_children == source -> message_id) continue;
         receive(source, current_children, receiving_message);
         increase_latest_time(source, receiving_message -> s_header.s_local_time);
