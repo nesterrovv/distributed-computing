@@ -2,6 +2,8 @@
 #include "pa2345.h"
 #include "pqueue.h"
 
+size_t number_of_processes;
+
 int request_cs(const void* source) {
 
     ipc_message* message = (ipc_message*) source;

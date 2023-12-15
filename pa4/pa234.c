@@ -14,6 +14,12 @@
 #include "ipc.h"
 #include "pa2345.h"
 
+ipc_message message;
+size_t number_of_processes;
+
+int read_matrix[MAXIMAL_PROCESSES_NUMBER][MAXIMAL_PROCESSES_NUMBER];
+int write_matrix[MAXIMAL_PROCESSES_NUMBER][MAXIMAL_PROCESSES_NUMBER];
+
 int STRING_SIZE = 128;
 int PRINT_VARIANTS = 5;
 int MAXIMAL_QUEUE_CAPACITY = 64;

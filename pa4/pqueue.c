@@ -1,4 +1,11 @@
+#include "structures.h"
 #include "pqueue.h"
+
+ipc_message message;
+size_t number_of_processes;
+
+int read_matrix[10][10];
+int write_matrix[10][10];
 
 int FIRST_GREATER   =  1;
 int SECOND_GREATER  = -1;
