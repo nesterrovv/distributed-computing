@@ -9,12 +9,6 @@
 #include "pa2345.h"
 #include "stdio.h"
 
-extern ipc_message message;
-extern size_t number_of_processes;
-
-extern int read_matrix[MAXIMAL_PROCESSES_NUMBER][MAXIMAL_PROCESSES_NUMBER];
-extern int write_matrix[MAXIMAL_PROCESSES_NUMBER][MAXIMAL_PROCESSES_NUMBER];
-
 bool check_if_payload_positive(uint16_t payload) {
     return payload > 0;
 }

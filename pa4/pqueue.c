@@ -1,12 +1,6 @@
 #include "structures.h"
 #include "pqueue.h"
 
-extern ipc_message message;
-extern size_t number_of_processes;
-
-extern int read_matrix[10][10];
-extern int write_matrix[10][10];
-
 int FIRST_GREATER   =  1;
 int SECOND_GREATER  = -1;
 int ITEMS_EQUAL     =  0;

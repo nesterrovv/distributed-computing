@@ -14,8 +14,8 @@
 #include "ipc.h"
 #include "pa2345.h"
 
-int STRING_SIZE = 128;
-int PRINT_VARIANTS = 5;
+int TOKENS_SIZE = 128;
+int TOKENS_COEF = 5;
 int MAXIMAL_QUEUE_CAPACITY = 64;
 
 //void renew_metrics(int, timestamp_t);
@@ -215,154 +215,114 @@ void connect_to_children_processes(local_id parrend_process_id) {
 //}
 
 
-static const char* const usage =
-    "This is example of my IPC library.   \n\
-Usage:      -p  NUM_PROCESSES (0 .. 10)   \n\
-            --mutexl                      \n";
-
-int main(int argc, char* argv[])
-{
-    int is_mutal = 0;
+int main(int argc, char* argv[]) {
+    int argc_not_enough = argc < 3;
+    int is_common = 0;
     size_t num_children = -1;
-    if (argc < 3)
-    {
-        log_formatted_errors_without_file(usage);
+    if (argc_not_enough) {
+        log_formatted_errors_without_file("Incorrect format of run: use ./pa4 -p N --mutexl [N = 1...10]\n");
         return 1;
-    }
-
-    int argi = 1;
-    while (argi < argc)
-    {
-        if (strcmp(argv[argi], "--mutexl") == 0)
-            is_mutal = 1;
-        else if (strcmp(argv[argi], "-p") == 0)
-        {
-            argi++;
-            if (argc <= argi)
-            {
-                log_formatted_errors_without_file(usage);
+    } else {
+        int argument_index = 1; // because 1th isn't necessary for us
+        while (argument_index < argc) {
+            int has_mutexl_flag = strcmp(argv[argument_index], "--mutexl");
+            int has_p_flag = strcmp(argv[argument_index], "-p");
+            if (has_mutexl_flag == 0) is_common = 1;
+            else if (has_p_flag == 0) {
+                argument_index++;
+                if (argc <= argument_index) {
+                    log_formatted_errors_without_file("Incorrect format of run: use ./pa4 -p N --mutexl [N = 1...10]\n");
+                    return 1;
+                }
+                else {
+                    num_children = strtol(argv[argument_index], NULL, 10);
+                    number_of_processes = num_children + 1;
+                }
+            } else {
+                log_formatted_errors_without_file("Incorrect format of run: use ./pa4 -p N --mutexl [N = 1...10]\n");
                 return 1;
             }
-            else
-            {
-                num_children = strtol(argv[argi], NULL, 10);
-                number_of_processes = num_children + 1;
-            }
+            argument_index++;
         }
-        else
-        {
-            log_formatted_errors_without_file(usage);
+        if (num_children == -1) {
+            log_formatted_errors_without_file("Incorrect format of run: use ./pa4 -p N --mutexl [N = 1...10]\n");
             return 1;
         }
-        argi++;
-    }
+        if (num_children >= MAXIMAL_PROCESSES_NUMBER) {
+            log_formatted_errors_without_file("Incorrect format of run: use ./pa4 -p N --mutexl [N = 1...10]\n");
+            return 1;
+        }
 
-    if (num_children == -1 || num_children >= MAXIMAL_PROCESSES_NUMBER)
-    {
-        log_formatted_errors_without_file(usage);
-        return 1;
-    }
+        number_of_processes = num_children + 1;
 
-    number_of_processes = num_children + 1;
-    do_pre_run_logging();
+        do_pre_run_logging();
 
-    // open pipes
-    for (size_t source = 0; source < number_of_processes; source++)
-    {
-        for (size_t destination = 0; destination < number_of_processes; destination++)
-        {
-            if (source != destination)
-            {
-                int fd[2];
-                pipe(fd);
-                unsigned int flags_for_read = fcntl(fd[0], F_GETFL, 0);
-                unsigned int flags_for_write = fcntl(fd[1], F_GETFL, 0);
-                if (fcntl(fd[0], F_SETFL, flags_for_read | O_NONBLOCK) < 0)
-                    exit(2);
-                if (fcntl(fd[1], F_SETFL, flags_for_write | O_NONBLOCK) < 0)
-                    exit(2);
-                read_matrix[source][destination] = fd[0];
-                write_matrix[source][destination] = fd[1];
-                log_pipes_is_ready(source, destination);
+        for (size_t i = 0; i < number_of_processes; i++) {
+            for (size_t j = 0; j < number_of_processes; j++) {
+                if (i == j) continue;
+                else {
+                    int file_descriptors[2];
+                    pipe(file_descriptors);
+                    if (fcntl(file_descriptors[0], F_SETFL, fcntl(file_descriptors[0], F_GETFL, 0) | O_NONBLOCK) < 0) exit(2);
+                    if (fcntl(file_descriptors[1], F_SETFL, fcntl(file_descriptors[1], F_GETFL, 0) | O_NONBLOCK) < 0) exit(2);
+                    read_matrix[i][j] = file_descriptors[0];
+                    write_matrix[i][j] = file_descriptors[1];
+                    log_pipes_is_ready(i, j);
+                }
             }
         }
-    }
 
-    // create porcessess
-    pid_of_processes[PARENT_ID] = getpid();
-    for (size_t id = 1; id <= num_children; id++)
-    {
-        int child_pid = fork();
-        if (child_pid > 0)
-        {
-            message = (ipc_message){
-                .message_id = PARENT_ID,
-                .message_time = 0,
-            };
-            pid_of_processes[id] = child_pid;
-        }
-        else if (child_pid == 0)
-        {
-            // It is child process.
-            message = (ipc_message){
-                .message_id = id,
-                .message_time = 0,
-            };
-            break;
-        }
-        else
-        {
-            log_formatted_errors_without_file("Error: Cannot create process. Parrent: %d", pid_of_processes[PARENT_ID]);
-        }
-    }
+        pid_of_processes[PARENT_ID] = getpid();
 
-    pipes_cleanup();
-    if (message.message_id == PARENT_ID)
-    {
-        Message msg;
-        // Receive ALL DONE
-        receive_from_all_children(&message, &msg, num_children);
-        log_finished_processes();
-    }
-    else
-    {
-        Message msg;
-        // Sent ALL START
-        send_started_to_all(&message);
-        // Receive ALL START
-        receive_from_all_children(&message, &msg, num_children);
-        message.done_messages = 0;
+        for (size_t current_id = 1; current_id <= num_children; current_id++) {
 
-        if (is_mutal)
-            request_cs(&message);
-        char str[128];
-        int num_prints = message.message_id * 5;
-        for (int i = 1; i <= num_prints; ++i)
-        {
-            memset(str, 0, sizeof(str));
-            sprintf(str, log_loop_operation_fmt, message.message_id, i, num_prints);
-            print(str);
+            int child_process_id = fork();
+
+            if (child_process_id == 0) {
+                message = (ipc_message) {.message_id = current_id, .message_time = 0,};
+                break;
+            } else if (child_process_id > 0) {
+                pid_of_processes[current_id] = child_process_id;
+                message = (ipc_message) {.message_time = 0, .message_id = PARENT_ID,};
+            } else if (child_process_id < 0) {
+                log_formatted_errors_without_file("Error: Cannot create process. Parrent: %d", pid_of_processes[PARENT_ID]);
+            } else {
+                break;
+            }
         }
-        if (is_mutal)
-            release_cs(&message);
 
-        send_done_to_all(&message);
-        while (message.done_messages < num_children - 1)
-        {
+        pipes_cleanup();
+
+        if (message.message_id != PARENT_ID) {
             Message msg;
-            receive_any(&message, &msg);
-            MessageType message_type = msg.s_header.s_type;
-            switch (message_type)
-            {
-            case DONE:
-                message.done_messages++;
-                break;
-            default:
-                break;
+            send_started_to_all(&message);
+            receive_from_all_children(&message, &msg, num_children);
+            message.done_messages = 0;
+            if (is_common) request_cs(&message);
+            char tokens[TOKENS_SIZE];
+            int num_prints = message.message_id * TOKENS_COEF;
+            for (int token_index = 1; token_index <= num_prints; token_index++) {
+                memset(tokens, 0, sizeof(tokens));
+                sprintf(tokens, log_loop_operation_fmt, message.message_id, token_index, num_prints);
+                print(tokens);
             }
+            if (is_common) release_cs(&message);
+            send_done_to_all(&message);
+            while (message.done_messages < num_children - 1) {
+                Message msg;
+                receive_any(&message, &msg);
+                MessageType message_type = msg.s_header.s_type;
+                if (message_type == DONE) {
+                    message.done_messages++;
+                }
+            }
+        } else {
+            Message msg;
+            receive_from_all_children(&message, &msg, num_children);
+            log_finished_processes();
         }
+        connect_to_children_processes(PARENT_ID);
+        log_finished_processes();
+        return 0;
     }
-    connect_to_children_processes(PARENT_ID);
-    log_finished_processes();
-    return 0;
 }
