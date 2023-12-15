@@ -214,7 +214,7 @@ void connect_to_children_processes(local_id parrend_process_id) {
     //renew_metrics(money_diff, time_for_move);
 //}
 
-`
+
 int main(int argc, char * argv[]) {
     log_info_about_pipes("program started", 1, 2);
     size_t children_processes_number = -1;
