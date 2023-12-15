@@ -27,6 +27,12 @@ typedef struct {
     timestamp_t    message_time;
 } __attribute__((packed)) ipc_message;
 
+ipc_message message;
+size_t number_of_processes;
+
+int read_matrix[MAXIMAL_PROCESSES_NUMBER][MAXIMAL_PROCESSES_NUMBER];
+int write_matrix[MAXIMAL_PROCESSES_NUMBER][MAXIMAL_PROCESSES_NUMBER];
+
 int receive_from_all_children(ipc_message* self, Message* msg, int max_count_children_proc);
 int send_started_to_all      (ipc_message* self);
 int send_done_to_all         (ipc_message* self);
