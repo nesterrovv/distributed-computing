@@ -3,8 +3,8 @@
 #ifndef __STRUCTURES_H
 #define __STRUCTURES_H
 
+#include "ipc.h"
 #include "banking.h"
-#include "structures.h"
 
 #define MINIMAL_PROCESSES_NUMBER 1
 #define MAXIMAL_PROCESSES_NUMBER 10

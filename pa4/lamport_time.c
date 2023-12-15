@@ -1,5 +1,5 @@
-#include "structures.h"
 #include "banking.h"
+#include "structures.h"
 
 timestamp_t get_lamport_time() {
     return message.message_time;
