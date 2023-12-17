@@ -1,6 +1,6 @@
 # Distributed computing course
 
-## ITMO University, 4th year of study, computer science education program 
+## ITMO University, 4th year of study, computer science educational program 
 
 ### Many thanks to the practitioner of this course, Denis Sergeevich Tarakanov, for his help in mastering the course materials and interesting questions during fascinating defenses
 
