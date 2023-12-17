@@ -18,8 +18,6 @@ int TOKENS_SIZE = 128;
 int TOKENS_COEF = 5;
 int MAXIMAL_QUEUE_CAPACITY = 64;
 
-//void renew_metrics(int, timestamp_t);
-
 pid_t pid_of_processes[MAXIMAL_PROCESSES_NUMBER + 1];
 
 static FILE* log_file_for_pipes;
@@ -52,13 +50,6 @@ void log_info(const char *format, ...) {
     va_end(logging_arguments);
 }
 
-//void log_starting_info() {
-//    pid_t pid = getpid();
-//    pid_t parent_pid = getppid();
-//    //balance_t log_balance = message.balance_history.s_history[message.balance_history.s_history_len - 1].s_balance;
-//    log_info(log_started_fmt, get_physical_time(), message.message_id, pid, parent_pid, 0);
-//}
-
 void do_pre_run_logging() {
     if ((log_file_for_info = fopen(events_log, "w")) == NULL)
         log_formatted_errors_without_file("File cannot be opened.", events_log);
@@ -88,65 +79,6 @@ void log_info_about_pipes(const char *format, ...) {
 void log_pipes_is_ready(int source_id, int destination_id) {
     log_info_about_pipes("Pipe from process %1d to %1d OPENED\n", source_id, destination_id);
 }
-
-//void log_transmit_info(local_id source_id, local_id destination_id, balance_t balance) {
-//    log_info(log_transfer_out_fmt, get_physical_time(), source_id,balance, destination_id);
-//}
-//void move_to_queue(ipc_message* money_source, timestamp_t initial_time, timestamp_t time_limit, balance_t current_money) {
-//    if (time_limit > initial_time) {
-//        for (timestamp_t time = initial_time; time < time_limit; time = time + 1) {
-//            money_source ->
-//            balance_history
-//            .s_history[time]
-//            .s_balance_pending_in = current_money;
-//        }
-//    }
-//}
-
-//void renew_metrics(int state_sum, timestamp_t time) {
-//    timestamp_t time_now = get_lamport_time();
-//
-//    if (time_now <= MAX_T) {
-//
-//        int history_length = message.balance_history.s_history_len;
-//
-//        if (history_length - time_now == 1) {
-//            if (state_sum > 0)
-//                move_to_queue(&message, time, time_now, state_sum);
-//            message.balance_history.s_history[history_length - 1].s_balance += state_sum;
-//        } else if (history_length == time_now) {
-//            if (state_sum > 0)
-//                move_to_queue(&message, time, time_now, state_sum);
-//            balance_t new_balance = message.balance_history.s_history[history_length - 1].s_balance + state_sum;
-//            history_length = history_length + 1;
-//            message.balance_history.s_history[history_length - 1] = (BalanceState) {
-//                    .s_balance = new_balance,
-//                    .s_time = time_now,
-//                    .s_balance_pending_in = 0,
-//            };
-//            message.balance_history.s_history_len++;
-//        } else if (time_now - history_length > 0) {
-//            balance_t last_balance = message.balance_history.s_history[history_length - 1].s_balance;
-//            for (int index = history_length; index < time_now; index++) {
-//                message.balance_history.s_history[index] = (BalanceState) {
-//                        .s_balance = last_balance,
-//                        .s_time = index,
-//                        .s_balance_pending_in = 0,
-//                };
-//            }
-//
-//            if (state_sum > 0) move_to_queue(&message, time, time_now, state_sum);
-//
-//            message.balance_history.s_history[time_now] = (BalanceState) {
-//                    .s_balance = last_balance + state_sum,
-//                    .s_time = time_now,
-//                    .s_balance_pending_in = 0,
-//            };
-//
-//            message.balance_history.s_history_len = time_now + 1;
-//        }
-//    }
-//}
 
 void pipes_cleanup() {
     for (size_t pipe_i = 0; pipe_i < MAXIMAL_PROCESSES_NUMBER; pipe_i++) {
@@ -178,42 +110,6 @@ void connect_to_children_processes(local_id parrend_process_id) {
         for (size_t index = 1; index <= MAXIMAL_PROCESSES_NUMBER; index = index + 1)
             waitpid(pid_of_processes[index], NULL, 0);
 }
-
-
-//void share_handler(ipc_message* source, Message* content) {
-//    balance_t money_diff;
-//    timestamp_t time_for_move = content -> s_header.s_local_time;
-//    Transfer* pointer_to_transfer = (Transfer*) content -> s_payload;
-//    TransferOrder transfer_order = pointer_to_transfer -> transfer_order;
-//    if (message.message_id == transfer_order.s_dst) {
-//        money_diff = transfer_order.s_amount;
-//        log_info(log_transfer_in_fmt, transfer_order.s_src, transfer_order.s_dst, transfer_order.s_amount);
-//        source -> message_time += 1;
-//        Message ack_message = {
-//                .s_header = {
-//                        .s_magic = MESSAGE_MAGIC,
-//                        .s_type = ACK,
-//                        .s_local_time = get_lamport_time(),
-//                        .s_payload_len = 0,
-//                },
-//        };
-//        ack_message.s_header.s_payload_len = strlen(ack_message.s_payload);
-//        send(&message, PARENT_ID, &ack_message);
-//    }
-//    else {
-//        money_diff = -transfer_order.s_amount;
-//        log_transmit_info(transfer_order.s_src, transfer_order.s_dst, transfer_order.s_amount);
-//        pointer_to_transfer -> message_id = message.message_id;
-//        transfer(
-//                pointer_to_transfer,
-//                transfer_order.s_src,
-//                transfer_order.s_dst,
-//                transfer_order.s_amount
-//        );
-//    }
-    //renew_metrics(money_diff, time_for_move);
-//}
-
 
 int main(int argc, char* argv[]) {
     int argc_not_enough = argc < 3;
@@ -278,38 +174,37 @@ int main(int argc, char* argv[]) {
 
             int child_process_id = fork();
 
-            if (child_process_id > 0) {
-                pid_of_processes[current_id] = child_process_id;
-                message = (ipc_message) {.message_time = 0, .message_id = PARENT_ID,};
-            } else if (child_process_id == 0) {
+            if (child_process_id == 0) {
                 message = (ipc_message) {.message_id = current_id, .message_time = 0,};
                 break;
-            } else {
+            } else if (child_process_id > 0) {
+                pid_of_processes[current_id] = child_process_id;
+                message = (ipc_message) {.message_time = 0, .message_id = PARENT_ID,};
+            } else if (child_process_id < 0) {
                 log_formatted_errors_without_file("Error: Cannot create process. Parrent: %d", pid_of_processes[PARENT_ID]);
+            } else {
+                break;
             }
-
         }
 
         pipes_cleanup();
 
-        if (message.message_id == PARENT_ID) {
-            Message msg;
-            receive_from_all_children(&message, &msg, num_children);
-            log_finished_processes();
-        } else {
+        if (message.message_id != PARENT_ID) {
             Message msg;
             send_started_to_all(&message);
             receive_from_all_children(&message, &msg, num_children);
             message.done_messages = 0;
-            if (is_common) request_cs(&message);
-            char tokens[TOKENS_SIZE];
             int num_prints = message.message_id * TOKENS_COEF;
+            char tokens[TOKENS_SIZE];
             for (int token_index = 1; token_index <= num_prints; token_index++) {
-                memset(tokens, 0, sizeof(tokens));
-                sprintf(tokens, log_loop_operation_fmt, message.message_id, token_index, num_prints);
-                print(tokens);
+                if (is_common) {
+                    request_cs(&message);
+                    memset(tokens, 0, sizeof(tokens));
+                    sprintf(tokens, log_loop_operation_fmt, message.message_id, token_index, num_prints);
+                    print(tokens);
+                    release_cs(&message);
+                }
             }
-            if (is_common) release_cs(&message);
             send_done_to_all(&message);
             while (message.done_messages < num_children - 1) {
                 Message msg;
@@ -319,6 +214,10 @@ int main(int argc, char* argv[]) {
                     message.done_messages++;
                 }
             }
+        } else {
+            Message msg;
+            receive_from_all_children(&message, &msg, num_children);
+            log_finished_processes();
         }
         connect_to_children_processes(PARENT_ID);
         log_finished_processes();

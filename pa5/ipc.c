@@ -32,11 +32,11 @@ int send(void* source, local_id destination, const Message* sending_message) {
     int validation_result = validate_sending_args(source, destination, sending_message);
     if (validation_result == IPC_MESSAGE_STATUS_SUCCESS) {
         int result_of_sending =
-                write(
+            write(
                 write_matrix[((ipc_message*) source) -> message_id][destination],
                 sending_message,
                 sizeof(MessageHeader) + sending_message -> s_header.s_payload_len
-                );
+            );
         if (result_of_sending == IPC_MESSAGE_STATUS_NOT_SENT)
             return errno == EPIPE ? IPC_MESSAGE_STATUS_ERROR_PIPE_IS_CLOSED : IPC_MESSAGE_STATUS_NOT_SENT;
         return IPC_MESSAGE_STATUS_SUCCESS;
@@ -121,7 +121,6 @@ int receive_any(void* source, Message* receiving_message) {
                     ||    temporary_receiving_result == IPC_MESSAGE_STATUS_NOT_SENT)) break;
                 }
             }
-            //return receiving_message -> s_header.s_type; // fixme
             return current_receiver;
         }
     }

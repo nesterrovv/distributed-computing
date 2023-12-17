@@ -3,7 +3,6 @@ add_executable(pa5
         ${CMAKE_CURRENT_SOURCE_DIR}/ipc.c
         ${CMAKE_CURRENT_SOURCE_DIR}/lamport_time.c
         ${CMAKE_CURRENT_SOURCE_DIR}/cs.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/pqueue.c
 )
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)
