@@ -2,7 +2,7 @@
 
 ## ITMO University, 4th year of study, computer science educational program 
 
-### Many thanks to the practitioner of this course, Denis Sergeevich Tarakanov, for his help in mastering the course materials and interesting questions during fascinating defenses
+### Many thanks to the practitioner of this course, Denis Sergeevich Tarakanov, for his strong patience and the help in mastering the course materials and interesting questions during fascinating defenses
 
 ### This repository contains 5 laboratory works on the subject “Distributed Computing”, descriptions of each of the works are provided, as well as instructions for assembling executable files.
 
